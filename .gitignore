@@ -1,0 +1,10 @@
+.claude
+.cvm
+.mcp.json
+__pycache__/
+*.pyc
+.venv/
+venv/
+/logs/
+/out/
+*.scip

@@ -1,0 +1,8 @@
+# Force LF for files that run inside Linux containers.
+* text=auto eol=lf
+*.py text eol=lf
+Dockerfile text eol=lf
+Dockerfile.test text eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary

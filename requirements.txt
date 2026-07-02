@@ -1,0 +1,6 @@
+# Runtime dependencies for letak-worker-terno.
+# The protocol wrapper in src/main.py and the parser in src/terno.py use only
+# the Python standard library. Add scraping/HTTP/parsing libs here if a
+# future implementation needs them, e.g.:
+#   requests>=2.32
+#   beautifulsoup4>=4.12
