@@ -7,9 +7,19 @@ under the "Aktualny letak" / "Buduci letak" tabs and reports new ones.
 ## Design decisions (locked)
 - **Novelty**: stateless -- caller passes `knownLeaflets` (keys); worker
   returns the ones not listed + `hasNew`.
-- **Novelty key**: `type|from|to` (e.g. `current|2026-06-29|2026-07-05`).
-  `type` is `"current"` or `"future"` (the tab), not a leaflet-format code
-  like Kaufland's `KDZ`/`Hyper2` -- Terno only ever shows one leaflet per tab.
+- **Novelty key**: `type|from|to` (e.g. `Leaflet|2026-06-29|2026-07-05`).
+  `type` is the **constant** `terno.LEAFLET_TYPE` ("Leaflet"), NOT the
+  current/future tab. Caught in review (kaufland-worker-agent, 2026-07-02):
+  the same leaflet moves from the "future" tab to the "current" tab as
+  weeks pass, so if `type` were the tab, that transition would change the
+  key (`future|w28dates` -> `current|w28dates`) and the orchestrator would
+  report the same leaflet as "new" twice. `tab` ("current"/"future") is
+  still tracked on each parsed item for introspection, but is deliberately
+  excluded from both the key and the final `{type,from,to,url}` output --
+  mirrors Kaufland, where `type` (KDZ/Hyper2) is leaflet identity and `tab`
+  is separate metadata for the same reason. See
+  `ParseLeafletsTests.test_novelty_key_is_stable_across_future_to_current_transition`
+  in `tests/test_parser.py` for the regression test.
 - **Output**: PDF entries `{type, from, to, url}` -- no viewer URLs.
 - **Scope**: URLs only; no PDF/asset downloading (left to a downstream step).
 - **Two-stage fetch**: the terno.sk page only embeds a Publitas iframe per
@@ -51,7 +61,7 @@ tests/            # test_protocol.py, test_parser.py, fixtures/*.html ...... DON
 ```
 Verified live against the real page (current leaflet found, `hasNew: true`
 on first run, `hasNew: false` once its key is fed back as known) and offline
-against the fixtures (18 parser tests + 15 protocol tests, all green).
+against the fixtures (19 parser tests + 15 protocol tests, all green).
 
 ## How it works (implemented)
 - Plain HTTP fetch (`urllib`) -- both pages are static HTML, no headless

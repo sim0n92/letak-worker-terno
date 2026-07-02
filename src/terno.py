@@ -26,6 +26,17 @@ Page model (https://terno.sk/sekcia/7-akciovy-letak):
     changes every week the slug's week number changes); flagged clearly
     here because it differs from sibling parsers where from/to are the
     retailer's exact, real validity.
+  - `type` in the novelty key is a CONSTANT (`LEAFLET_TYPE`), not the tab.
+    Terno shows exactly one leaflet per tab, and the SAME leaflet moves from
+    "future" to "current" as weeks pass (this week's w28-future is next
+    week's w28-current). If `type` were the tab, that transition would
+    change the novelty key (`future|...` -> `current|...`) and the
+    orchestrator would report the same leaflet as "new" twice. `tab` is
+    still tracked on each parsed item for introspection/debugging, but is
+    deliberately NOT part of the key or the final {type,from,to,url} output
+    -- mirrors Kaufland, where `type` identifies the leaflet slot (KDZ,
+    Hyper2) and `tab` (current/future) is separate metadata for the same
+    reason.
 """
 from __future__ import annotations
 
@@ -36,6 +47,9 @@ import urllib.request
 from datetime import date, datetime
 
 DEFAULT_URL = "https://terno.sk/sekcia/7-akciovy-letak"
+# Terno shows exactly one leaflet format -- `type` is a constant identity,
+# NOT the tab (see module docstring for why the tab must stay out of the key).
+LEAFLET_TYPE = "Leaflet"
 _USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
     "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
@@ -179,10 +193,14 @@ def _week_bounds(slug: str | None,
 
 def leaflet_key(type_: str | None, valid_from: str | None,
                 valid_to: str | None) -> str:
-    """Stable novelty key: tab type + (approximate) validity range.
+    """Stable novelty key: leaflet identity (LEAFLET_TYPE) + validity range.
 
-        leaflet_key("current", "2026-06-29", "2026-07-05")
-            -> "current|2026-06-29|2026-07-05"
+    NOT the tab (current/future) -- see module docstring: the same leaflet
+    moves from "future" to "current" as weeks pass, and the key must not
+    change when that happens.
+
+        leaflet_key("Leaflet", "2026-06-29", "2026-07-05")
+            -> "Leaflet|2026-06-29|2026-07-05"
     """
     return f"{type_}|{valid_from}|{valid_to}"
 
@@ -195,7 +213,10 @@ def parse_leaflets(main_doc: str, publication_docs: dict[str, str]) -> list[dict
     Tabs with no viewerUrl (nothing published) or a missing/failed fetch are
     skipped.
 
-    Each item: {type, title, validFrom, validTo, viewerUrl, pdfUrl}.
+    Each item: {type, tab, title, validFrom, validTo, viewerUrl, pdfUrl}.
+    `type` is the constant LEAFLET_TYPE (leaflet identity, part of the
+    novelty key); `tab` ("current"/"future") is separate, informational
+    metadata -- see module docstring for why it must stay out of the key.
     """
     leaflets = []
     for tab in parse_tabs(main_doc):
@@ -208,7 +229,8 @@ def parse_leaflets(main_doc: str, publication_docs: dict[str, str]) -> list[dict
         pub = parse_publication(pub_doc)
         valid_from, valid_to = _week_bounds(pub["slug"], pub["sourceDocumentTitle"])
         leaflets.append({
-            "type": tab["tab"],
+            "type": LEAFLET_TYPE,
+            "tab": tab["tab"],
             "title": pub["slug"],
             "validFrom": valid_from,
             "validTo": valid_to,

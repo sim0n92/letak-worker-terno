@@ -26,7 +26,11 @@ promotional leaflets ("letaky") and reports the ones that are new.
    offer cycle -- see `src/terno.py` module docstring and `PLAN.md` for
    details and the reasoning.
 5. Each leaflet has a **stable key** = `type|from|to` (e.g.
-   `current|2026-06-29|2026-07-05`) built from that approximate range. Any
+   `Leaflet|2026-06-29|2026-07-05`) built from that approximate range. `type`
+   is the constant `"Leaflet"`, NOT the current/future tab -- the same
+   leaflet moves from "future" to "current" as weeks pass, and the key must
+   not change when that happens (the tab is still recorded per-item for
+   introspection, just kept out of the key and the final output). Any
    leaflet whose key is not in the `knownLeaflets` input list is reported as
    **new**.
 6. Writes the result to `outputPath` and emits a `result` with `hasNew` +
@@ -65,7 +69,7 @@ echo '{"_action":"execute","outputPath":"/out/leaflets.json","knownLeaflets":[]}
 | `_action`       | string   | yes      | `execute` or `terminate` (system-injected) |
 | `outputPath`    | string   | yes      | Absolute path for the result JSON |
 | `knownLeaflets` | string[] | no       | Keys already seen (`type|from|to`); anything not listed is "new" |
-| `types`         | string[] | no       | Case-insensitive filter (`current`, `future`); empty/absent = all |
+| `types`         | string[] | no       | Case-insensitive filter; Terno only ever produces `"Leaflet"` (kept for parity with the shared worker contract) |
 | `pageUrl`       | string   | no       | Override leaflet page URL (default `https://terno.sk/sekcia/7-akciovy-letak`) |
 | `customData`    | object   | no       | Source-specific hints |
 | `_meta`         | object   | no       | Execution metadata (system-injected) |
@@ -86,7 +90,7 @@ handled back via `knownLeaflets` on the next run.
 
 ```json
 {"type":"result","data":{"count":1,"hasNew":true,
-  "leaflets":[{"type":"current","from":"2026-06-29","to":"2026-07-05",
+  "leaflets":[{"type":"Leaflet","from":"2026-06-29","to":"2026-07-05",
           "url":"https://view.publitas.com/75539/3197923/pdfs/....pdf?response-content-disposition=attachment%3B+..."}],
   "outputPath":"/out/leaflets.json","fileSize":453}}
 ```

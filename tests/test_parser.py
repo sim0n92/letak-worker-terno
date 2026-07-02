@@ -118,9 +118,26 @@ class LeafletKeyTests(unittest.TestCase):
         )
 
     def test_different_types_same_dates_produce_different_keys(self):
-        k1 = terno.leaflet_key("current", "2026-06-29", "2026-07-05")
-        k2 = terno.leaflet_key("future", "2026-06-29", "2026-07-05")
+        # leaflet_key() itself is a generic function -- still must discriminate
+        # on `type`, even though Terno currently only ever passes LEAFLET_TYPE.
+        k1 = terno.leaflet_key("Leaflet", "2026-06-29", "2026-07-05")
+        k2 = terno.leaflet_key("OtherFormat", "2026-06-29", "2026-07-05")
         self.assertNotEqual(k1, k2)
+
+
+def _main_html_with_tab(tab_id: str, viewer_url: str) -> str:
+    """Minimal synthetic main-page HTML with one iframe in the given tab-pane
+    (id="page_8" = current, id="page_16" = future). Used to prove novelty-key
+    stability across the future->current transition, which the real fixture
+    (captured with only a current leaflet) can't exercise."""
+    return f"""<html><body>
+<ul class="letak-tabs nav nav-tabs">
+    <li class="nav-item"><a data-bs-target="#page_8" alt="Aktualny letak"><h5>Aktualny letak</h5></a></li>
+    <li class="nav-item"><a data-bs-target="#page_16" alt="Buduci letak"><h5>Buduci letak</h5></a></li>
+</ul>
+<div class="tab-pane" id="page_8">{'<iframe src="' + viewer_url + '"></iframe>' if tab_id == "page_8" else ''}</div>
+<div class="tab-pane" id="page_16">{'<iframe src="' + viewer_url + '"></iframe>' if tab_id == "page_16" else ''}</div>
+</body></html>"""
 
 
 class ParseLeafletsTests(unittest.TestCase):
@@ -132,7 +149,8 @@ class ParseLeafletsTests(unittest.TestCase):
 
         self.assertEqual(len(leaflets), 1)
         leaflet = leaflets[0]
-        self.assertEqual(leaflet["type"], "current")
+        self.assertEqual(leaflet["type"], terno.LEAFLET_TYPE)
+        self.assertEqual(leaflet["tab"], "current")
         self.assertEqual(leaflet["validFrom"], "2026-06-29")
         self.assertEqual(leaflet["validTo"], "2026-07-05")
         self.assertEqual(leaflet["viewerUrl"], REAL_VIEWER_URL)
@@ -150,7 +168,47 @@ class ParseLeafletsTests(unittest.TestCase):
         main_doc = _read_fixture("terno.html")
         pub_doc = _read_fixture("publitas.html")
         leaflets = terno.parse_leaflets(main_doc, {REAL_VIEWER_URL: pub_doc})
-        self.assertTrue(all(lf["type"] != "future" for lf in leaflets))
+        self.assertTrue(all(lf["tab"] != "future" for lf in leaflets))
+
+    def test_novelty_key_is_stable_across_future_to_current_transition(self):
+        """Regression test for the future->current tab-transition bug: the
+        SAME leaflet (identified by its Publitas slug) must produce the
+        IDENTICAL novelty key whether it is currently shown under "future"
+        or, a week later, under "current" -- otherwise the orchestrator
+        would report it as new twice.
+        """
+        viewer_url = "https://view.publitas.com/terno-letak/w28_letak_terno_x-samehash/"
+        pub_doc = _publication_html_fixture(
+            slug="w28_letak_terno_x-samehash",
+            source_document_title="July 08, 2026 09:00",
+            pdf_url="https://example.com/w28.pdf",
+        )
+
+        as_future = terno.parse_leaflets(
+            _main_html_with_tab("page_16", viewer_url), {viewer_url: pub_doc})
+        as_current = terno.parse_leaflets(
+            _main_html_with_tab("page_8", viewer_url), {viewer_url: pub_doc})
+
+        self.assertEqual(len(as_future), 1)
+        self.assertEqual(len(as_current), 1)
+        self.assertEqual(as_future[0]["tab"], "future")
+        self.assertEqual(as_current[0]["tab"], "current")
+
+        key_as_future = terno.leaflet_key(
+            as_future[0]["type"], as_future[0]["validFrom"], as_future[0]["validTo"])
+        key_as_current = terno.leaflet_key(
+            as_current[0]["type"], as_current[0]["validFrom"], as_current[0]["validTo"])
+        self.assertEqual(key_as_future, key_as_current)
+
+
+def _publication_html_fixture(slug: str, source_document_title: str, pdf_url: str) -> str:
+    import json
+    data = json.dumps({
+        "slug": slug,
+        "sourceDocumentTitle": source_document_title,
+        "config": {"downloadPdfUrl": pdf_url},
+    })
+    return f"<html><body><script>\n        var data =   {data};\n</script></body></html>"
 
 
 if __name__ == "__main__":

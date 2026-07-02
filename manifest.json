@@ -24,7 +24,7 @@
               "type": "string"
             },
             "default": [],
-            "description": "Leaflet keys already seen, each formatted as 'type|from|to' (e.g. 'current|2026-06-29|2026-07-05'). Any leaflet whose key is not in this list is reported as new."
+            "description": "Leaflet keys already seen, each formatted as 'type|from|to' (e.g. 'Leaflet|2026-06-29|2026-07-05'). Any leaflet whose key is not in this list is reported as new."
           },
           "types": {
             "type": "array",
@@ -32,7 +32,7 @@
               "type": "string"
             },
             "default": [],
-            "description": "Optional case-insensitive leaflet-type filter ('current' and/or 'future'). When set, only leaflets of these types are returned; empty or absent means all types. Combined with knownLeaflets: a leaflet is returned only when it matches a type AND is new."
+            "description": "Optional case-insensitive leaflet-type filter. Terno only ever produces one leaflet type ('Leaflet'); this field exists for parity with the shared worker contract. When set, only leaflets of these types are returned; empty or absent means all types. Combined with knownLeaflets: a leaflet is returned only when it matches a type AND is new."
           },
           "pageUrl": {
             "type": "string",
@@ -71,7 +71,7 @@
               "properties": {
                 "type": {
                   "type": "string",
-                  "description": "'current' or 'future' (the Terno tab the leaflet was found under). Part of the novelty key."
+                  "description": "Constant 'Leaflet' -- Terno only produces one leaflet format. Part of the novelty key. Deliberately NOT the current/future tab: the same leaflet moves from 'future' to 'current' as weeks pass, and the key must stay stable across that transition."
                 },
                 "from": {
                   "type": "string",

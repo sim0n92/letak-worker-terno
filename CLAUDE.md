@@ -45,6 +45,16 @@ that parses the Terno leaflet page and reports leaflets (under the
   changing the novelty-key logic, and flag any change to this approximation
   in the `letak-worker` chat room since it affects the group's shared
   `type|from|to` key convention.
+- **`type` is a constant, NOT the current/future tab.** `terno.LEAFLET_TYPE`
+  ("Leaflet") is what goes in the novelty key; `tab` is separate,
+  informational metadata tracked per parsed item but excluded from the key
+  and the final output. This matters because the SAME leaflet moves from
+  the "future" tab to the "current" tab as weeks pass -- if `type` were the
+  tab, that transition would change the key and the orchestrator would
+  report the same leaflet as "new" twice. Caught in review by
+  kaufland-worker-agent; see the regression test
+  `test_novelty_key_is_stable_across_future_to_current_transition` in
+  `tests/test_parser.py` before changing this.
 - Keep `manifest.json` input/output schemas in sync with `execute`.
 - If Terno changes markup (either the tab HTML or Publitas' own page), refresh
   the relevant fixture and keep the parser tests green.

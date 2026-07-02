@@ -145,24 +145,24 @@ class HappyPathTests(unittest.TestCase):
         self.assertEqual(result["count"], 1)
         self.assertTrue(result["hasNew"])
         leaflet = result["leaflets"][0]
-        self.assertEqual(leaflet["type"], "current")
+        self.assertEqual(leaflet["type"], "Leaflet")
         self.assertEqual(leaflet["from"], "2026-06-29")
         self.assertEqual(leaflet["to"], "2026-07-05")
         self.assertEqual(leaflet["url"], "https://example.com/fake-terno-letak.pdf")
 
     def test_known_leaflet_is_filtered_out(self):
-        proc = self._execute(knownLeaflets=["current|2026-06-29|2026-07-05"])
+        proc = self._execute(knownLeaflets=["Leaflet|2026-06-29|2026-07-05"])
         result = _stdout_lines(proc)[-1]["data"]
         self.assertEqual(result["count"], 0)
         self.assertFalse(result["hasNew"])
 
     def test_type_filter_excludes_non_matching_types(self):
-        proc = self._execute(types=["future"])
+        proc = self._execute(types=["SomeOtherFormat"])
         result = _stdout_lines(proc)[-1]["data"]
         self.assertEqual(result["count"], 0)
 
     def test_type_filter_is_case_insensitive(self):
-        proc = self._execute(types=["CURRENT"])
+        proc = self._execute(types=["LEAFLET"])
         result = _stdout_lines(proc)[-1]["data"]
         self.assertEqual(result["count"], 1)
 
