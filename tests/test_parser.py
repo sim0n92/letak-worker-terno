@@ -94,10 +94,11 @@ class ParsePublicationTests(unittest.TestCase):
 
 
 class WeekBoundsTests(unittest.TestCase):
-    def test_iso_week_monday_to_sunday(self):
+    def test_iso_week_thursday_to_wednesday(self):
+        # Terno's real cycle: Thursday -> the following Wednesday (week 27/2026).
         valid_from, valid_to = terno._week_bounds("w27_letak_terno_x", "July 01, 2026 13:48")
-        self.assertEqual(valid_from, "2026-06-29")
-        self.assertEqual(valid_to, "2026-07-05")
+        self.assertEqual(valid_from, "2026-07-02")
+        self.assertEqual(valid_to, "2026-07-08")
 
     def test_none_when_slug_missing_week_prefix(self):
         self.assertEqual(terno._week_bounds("letak_terno_no_week", "July 01, 2026 13:48"), (None, None))
@@ -151,8 +152,8 @@ class ParseLeafletsTests(unittest.TestCase):
         leaflet = leaflets[0]
         self.assertEqual(leaflet["type"], terno.LEAFLET_TYPE)
         self.assertEqual(leaflet["tab"], "current")
-        self.assertEqual(leaflet["validFrom"], "2026-06-29")
-        self.assertEqual(leaflet["validTo"], "2026-07-05")
+        self.assertEqual(leaflet["validFrom"], "2026-07-02")
+        self.assertEqual(leaflet["validTo"], "2026-07-08")
         self.assertEqual(leaflet["viewerUrl"], REAL_VIEWER_URL)
         self.assertTrue(leaflet["pdfUrl"].endswith(
             "filename%2A%3DUTF-8%27%27Terno%2520-%2520w27_Letak_TERNO_200x297mm_online.pdf"))
