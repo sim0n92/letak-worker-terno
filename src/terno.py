@@ -20,12 +20,13 @@ Page model (https://terno.sk/sekcia/7-akciovy-letak):
     "w27" is the ISO week number the leaflet was built for) and
     `sourceDocumentTitle` (e.g. "July 01, 2026 13:48" -- the source PDF's
     upload timestamp, used here only to recover the year).
-    validFrom/validTo are therefore APPROXIMATED as the Monday-Sunday span
-    of that ISO week -- a deterministic proxy, not Terno's real (possibly
-    Wed-Tue or other) offer cycle. Good enough for the novelty key (it still
-    changes every week the slug's week number changes); flagged clearly
-    here because it differs from sibling parsers where from/to are the
-    retailer's exact, real validity.
+    validFrom/validTo are therefore DERIVED from that ISO week anchored on
+    Terno's real offer cycle: THURSDAY -> the following WEDNESDAY (7 days),
+    e.g. week 27/2026 -> 2026-07-02 .. 2026-07-08 (see _week_bounds). This
+    matches the validity the downstream product extraction reads off the flyer;
+    the earlier Monday-Sunday proxy was 3 days early and flagged every product
+    as "validity outside flyer range". Still deterministic and still changes
+    every week the slug's week number changes, so the novelty key is unaffected.
   - `type` in the novelty key is a CONSTANT (`LEAFLET_TYPE`), not the tab.
     Terno shows exactly one leaflet per tab, and the SAME leaflet moves from
     "future" to "current" as weeks pass (this week's w28-future is next
@@ -44,7 +45,7 @@ import html as _html
 import json
 import re
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 DEFAULT_URL = "https://terno.sk/sekcia/7-akciovy-letak"
 # Terno shows exactly one leaflet format -- `type` is a constant identity,
@@ -166,12 +167,17 @@ def parse_publication(doc: str) -> dict:
 
 def _week_bounds(slug: str | None,
                  source_document_title: str | None) -> tuple[str | None, str | None]:
-    """Best-effort validity range: Monday-Sunday of the ISO week encoded in
-    the slug (e.g. "w27_..." -> week 27), using the year recovered from
+    """Best-effort validity range for the ISO week encoded in the slug
+    (e.g. "w27_..." -> week 27), using the year recovered from
     `sourceDocumentTitle` (e.g. "July 01, 2026 13:48" -> 2026).
 
-    See the module docstring: Terno exposes no real from/to anywhere, so
-    this is a deterministic proxy, not the retailer's exact offer cycle.
+    Terno's real offer cycle runs THURSDAY -> the following WEDNESDAY (7 days),
+    not Monday-Sunday: e.g. week 27/2026 is 2026-07-02 .. 2026-07-08. The page
+    itself exposes no explicit from/to (see module docstring), so we derive the
+    window from the slug's week number anchored on Thursday (ISO weekday 4) --
+    matching the retailer's actual validity that the downstream product
+    extraction reads off the flyer, instead of the earlier Monday-Sunday proxy
+    (which flagged every product as "validity outside flyer range").
     """
     if not slug or not source_document_title:
         return None, None
@@ -184,11 +190,12 @@ def _week_bounds(slug: str | None,
     except ValueError:
         return None, None
     try:
-        monday = date.fromisocalendar(year, week, 1)
-        sunday = date.fromisocalendar(year, week, 7)
+        # ISO weekday 4 = Thursday; the 7-day Terno window ends the next Wednesday.
+        start = date.fromisocalendar(year, week, 4)
     except ValueError:
         return None, None
-    return monday.isoformat(), sunday.isoformat()
+    end = start + timedelta(days=6)
+    return start.isoformat(), end.isoformat()
 
 
 def leaflet_key(type_: str | None, valid_from: str | None,
