@@ -291,6 +291,13 @@ class LetakWorker(ProcessClass):
             for lf in leaflets if lf.get("pdfUrl")
         ]
 
+        # 3b. The page always carries the current leaflet: none = the site's layout changed. An error,
+        #     never "Completed, 0 leaflets" (Billa and Coop ran silently empty for weeks in 2026-10).
+        if not items:
+            raise ManagedError(
+                "No leaflets found on the terno page - layout changed?",
+                code="NO_LEAFLETS", exit_code=EXIT_DEPENDENCY)
+
         # 4. Keep only leaflets that (a) match the optional type filter AND
         #    (b) are new. Novelty is decided by a STABLE key (tab type +
         #    approximate validity week), not by the PDF URL (which carries a
