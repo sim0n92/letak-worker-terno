@@ -175,7 +175,8 @@ class HappyPathTests(unittest.TestCase):
 
 
 class NoLeafletsTests(unittest.TestCase):
-    def test_current_tab_with_no_iframe_yields_no_leaflets(self):
+    def test_current_tab_with_no_iframe_is_no_leaflets_error(self):
+        # Terno always has a current leaflet: none = the page changed -> an error, not "Completed, 0 leaflets"
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
             main_file = tmp / "terno.html"
@@ -189,10 +190,8 @@ class NoLeafletsTests(unittest.TestCase):
                 },
                 env_extra={"LOG_DIR": str(tmp / "logs")},
             )
-            result = _stdout_lines(proc)[-1]["data"]
-            self.assertEqual(proc.returncode, 0, proc.stderr)
-            self.assertEqual(result["count"], 0)
-            self.assertFalse(result["hasNew"])
+            self.assertEqual(proc.returncode, 4, proc.stderr)
+            self.assertEqual(_stdout_lines(proc)[-1].get("code"), "NO_LEAFLETS")
 
 
 class ErrorPathTests(unittest.TestCase):

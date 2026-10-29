@@ -3,7 +3,7 @@
   "specVersion": "1.0",
   "type": "stdin",
   "name": "letak-worker-terno",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Detects Terno leaflets under the current/future offer tabs and returns new leaflet URLs.",
   "author": "Fancysoft / 0ics",
   "repository": "https://github.com/sim0n92/letak-worker-terno",
