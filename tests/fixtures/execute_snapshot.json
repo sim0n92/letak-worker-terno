@@ -1,0 +1,27 @@
+{
+  "result": {
+    "count": 1,
+    "hasNew": true,
+    "leaflets": [
+      {
+        "type": "Leaflet",
+        "from": "2026-07-09",
+        "to": "2026-07-15",
+        "url": "https://example.com/fake-terno-letak-28.pdf"
+      }
+    ]
+  },
+  "fileDoc": {
+    "types": null,
+    "hasNew": true,
+    "count": 1,
+    "leaflets": [
+      {
+        "type": "Leaflet",
+        "from": "2026-07-09",
+        "to": "2026-07-15",
+        "url": "https://example.com/fake-terno-letak-28.pdf"
+      }
+    ]
+  }
+}

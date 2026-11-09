@@ -11,6 +11,7 @@ RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
 COPY src/main.py /app/main.py
 COPY src/terno.py /app/terno.py
+COPY src/v11.py /app/v11.py
 COPY manifest.json /app/manifest.json
 
 RUN mkdir -p /logs

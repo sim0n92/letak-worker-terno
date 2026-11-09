@@ -3,10 +3,13 @@ FROM python:3.12-slim
 WORKDIR /app
 
 COPY requirements.txt /tmp/requirements.txt
+COPY requirements-dev.txt /tmp/requirements-dev.txt
+RUN pip3 install --no-cache-dir -r /tmp/requirements-dev.txt
 RUN pip3 install --no-cache-dir -r /tmp/requirements.txt
 
 COPY src/main.py /app/main.py
 COPY src/terno.py /app/terno.py
+COPY src/v11.py /app/v11.py
 COPY manifest.json /app/manifest.json
 COPY tests /app/tests
 
@@ -14,4 +17,4 @@ ENV PYTHONUNBUFFERED=1
 ENV LOG_DIR=/logs
 RUN mkdir -p /logs
 
-ENTRYPOINT ["sh", "-c", "python3 tests/test_parser.py && python3 tests/test_protocol.py"]
+ENTRYPOINT ["sh", "-c", "python3 tests/test_parser.py && python3 tests/test_protocol.py && python3 -m pytest -q tests/test_v11.py"]
