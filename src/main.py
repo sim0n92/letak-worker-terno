@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 import terno
+import v11
 
 # --- Exit codes (spec section 4.7) ---------------------------------------
 EXIT_OK = 0
@@ -196,6 +197,8 @@ class ProcessClass:
                 return self._handle_execute()
             if action == "terminate":
                 return self._handle_terminate()
+            if action in v11.ACTIONS:
+                return self._handle_v11(action)
             raise ManagedError(
                 f"Unknown action: {action!r}", code="UNKNOWN_ACTION",
                 exit_code=EXIT_INPUT)
@@ -215,6 +218,25 @@ class ProcessClass:
         self.report(100, "Done")
         self._emit_result(data)
         return EXIT_OK
+
+    def _handle_v11(self, action: str) -> int:
+        """Proc-protocol v1.1 actions: errors carry the three protocol codes, not the legacy ones."""
+        try:
+            if action == "spec":
+                self._emit_result(v11.spec())
+                return EXIT_OK
+            self._start_terminate_watcher()
+            problem = v11.input_problem(self._input_data)
+            if problem:
+                raise ManagedError(problem, code="INVALID_INPUT", exit_code=EXIT_INPUT)
+            data = self.v11_check(self._input_data) if action == "check" else self.v11_run(self._input_data)
+            self._emit_result(data)
+            return EXIT_OK
+        except ManagedError as e:
+            code = v11.classify(e.code)
+            self.logger.error("%s (%s)", e, code)
+            self._emit_error(str(e), code, v11.error_data(code))
+            return e.exit_code
 
     def _handle_terminate(self) -> int:
         self.report(0, "Termination requested...")
@@ -245,6 +267,52 @@ class LetakWorker(ProcessClass):
         known = set(input_data.get("knownLeaflets") or [])
         wanted = {str(t).lower() for t in (input_data.get("types") or [])}
         self.logger.info("Scrape requested -> %s (known=%d)", url, len(known))
+        items = self._scan(input_data)
+
+        # 4. Keep only leaflets that (a) match the optional type filter AND
+        #    (b) are new. Novelty is decided by a STABLE key (tab type +
+        #    approximate validity week), not by the PDF URL (which carries a
+        #    UUID that changes on re-upload).
+        matched = [
+            it for it in items
+            if (not wanted or (it["type"] or "").lower() in wanted)
+            and terno.leaflet_key(it["type"], it["from"], it["to"]) not in known
+        ]
+        self.logger.info(
+            "%d leaflet(s) match (types=%s, known=%d): %s",
+            len(matched), sorted(wanted) or "*", len(known),
+            [terno.leaflet_key(it["type"], it["from"], it["to"]) for it in matched])
+
+        # 5. Write the result: a small envelope + the matched leaflets.
+        self.report(90, "Writing output")
+        result_doc = {
+            "source": url,
+            "types": sorted(wanted) or None,
+            "hasNew": bool(matched),
+            "count": len(matched),
+            "leaflets": matched,
+        }
+        out = Path(output_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(result_doc, ensure_ascii=False, indent=2),
+                       encoding="utf-8")
+
+        return {
+            "outputPath": str(out),
+            "count": len(matched),
+            "hasNew": bool(matched),
+            "leaflets": matched,
+            "fileSize": out.stat().st_size,
+        }
+
+    def _scan(self, input_data: dict[str, Any]) -> list[dict]:
+        """Fetches and parses the listing: all current leaflets {type, from, to, url}.
+
+        Raises ManagedError with the legacy codes (FETCH_FAILED, NO_LEAFLETS, TERMINATED).
+        Shared by execute, check and run.
+        """
+        url = input_data.get("pageUrl") or terno.DEFAULT_URL
+        wanted = {str(t).lower() for t in (input_data.get("types") or [])}
 
         # 1. Fetch the leaflet listing page (the "Aktualny/Buduci letak" tabs).
         self.report(10, f"Fetching {url}")
@@ -297,42 +365,18 @@ class LetakWorker(ProcessClass):
             raise ManagedError(
                 "No leaflets found on the terno page - layout changed?",
                 code="NO_LEAFLETS", exit_code=EXIT_DEPENDENCY)
+        return items
 
-        # 4. Keep only leaflets that (a) match the optional type filter AND
-        #    (b) are new. Novelty is decided by a STABLE key (tab type +
-        #    approximate validity week), not by the PDF URL (which carries a
-        #    UUID that changes on re-upload).
-        matched = [
-            it for it in items
-            if (not wanted or (it["type"] or "").lower() in wanted)
-            and terno.leaflet_key(it["type"], it["from"], it["to"]) not in known
-        ]
-        self.logger.info(
-            "%d leaflet(s) match (types=%s, known=%d): %s",
-            len(matched), sorted(wanted) or "*", len(known),
-            [terno.leaflet_key(it["type"], it["from"], it["to"]) for it in matched])
+    def v11_check(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        self._scan(input_data)
+        return {"ok": True}
 
-        # 5. Write the result: a small envelope + the matched leaflets.
-        self.report(90, "Writing output")
-        result_doc = {
-            "source": url,
-            "types": sorted(wanted) or None,
-            "hasNew": bool(matched),
-            "count": len(matched),
-            "leaflets": matched,
-        }
-        out = Path(output_path)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(result_doc, ensure_ascii=False, indent=2),
-                       encoding="utf-8")
-
-        return {
-            "outputPath": str(out),
-            "count": len(matched),
-            "hasNew": bool(matched),
-            "leaflets": matched,
-            "fileSize": out.stat().st_size,
-        }
+    def v11_run(self, input_data: dict[str, Any]) -> dict[str, Any]:
+        found = self._scan(input_data)
+        wanted = {str(t).lower() for t in (input_data.get("types") or [])}
+        state = dict(input_data.get("state") or {})
+        state["seen"] = list(state.get("seen") or []) + list(input_data.get("knownLeaflets") or [])
+        return v11.build_run_result(found, wanted, state, lambda it: terno.leaflet_key(it["type"], it["from"], it["to"]))
 
     def terminate(self) -> bool:
         self.terminate_requested.set()
